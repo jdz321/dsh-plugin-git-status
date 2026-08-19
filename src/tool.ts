@@ -1,0 +1,68 @@
+/**
+ * The `git_status` model tool: lets the agent read a repository's git status
+ * through the normal tool pipeline, so the call and its result land in the
+ * session log and the trajectory view (an agent operation, unlike the panel's
+ * silent UI polling). The canonical value is the structured GitStatusResult
+ * JSON; the model-facing content is that JSON pretty-printed.
+ * @module dsh-plugin-git-status/tool
+ */
+
+import { defineTool } from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import type { JsonValue } from '@deepseek-ai/dsh-session'
+import type { GitStatusResult } from './types.js'
+import { runGitStatus, type ShellRunner } from './runner.js'
+
+/** Cap on file entries included in the model-facing JSON. */
+const RENDER_ENTRY_LIMIT = 100
+
+/** Project one status result to bounded, pretty-printed JSON for the model. */
+function renderStatusJson(result: GitStatusResult): string {
+  if (!result.ok) return JSON.stringify(result, null, 2)
+  const entries = result.entries.length > RENDER_ENTRY_LIMIT
+    ? result.entries.slice(0, RENDER_ENTRY_LIMIT)
+    : result.entries
+  const bounded = {
+    ...result,
+    entries,
+    truncated: result.truncated || result.entries.length > RENDER_ENTRY_LIMIT,
+  }
+  return JSON.stringify(bounded, null, 2)
+}
+
+/**
+ * Build the tool definition bound to one shell runner.
+ * @param shell - the bash executor service.
+ * @returns a registry-ready tool definition.
+ */
+export function createGitStatusTool(shell: ShellRunner): ToolDefinition {
+  return defineTool({
+    name: 'git_status',
+    description: '读取 Git 仓库的状态并返回 JSON：分支、相对上游的领先/落后、已暂存/未暂存/未跟踪/冲突的变更计数与文件列表（最多 100 条）、最近提交。省略 cwd 时使用当前会话工作区。',
+    parameters: {
+      cwd: {
+        type: 'string',
+        description: '要检查的目录路径；省略时使用当前会话工作区。',
+      },
+    },
+    output: {
+      schema: { type: 'json' },
+      render(_args, value) {
+        return [{ type: 'text', text: renderStatusJson(value as unknown as GitStatusResult) }] as ContentBlock[]
+      },
+    },
+    execute: async (args, exec) => {
+      const agent = exec.agent as { session?: { header?: { cwd?: string } } } | undefined
+      const cwd = typeof args.cwd === 'string' && args.cwd !== ''
+        ? args.cwd
+        : agent?.session?.header?.cwd
+      if (cwd === undefined) {
+        throw new Error('git_status: 无法确定工作目录（当前会话没有 cwd），请显式传入 cwd 参数')
+      }
+      const result = await runGitStatus(shell, cwd)
+      if (!result.ok) throw new Error(result.error)
+      return result as unknown as JsonValue
+    },
+  })
+}

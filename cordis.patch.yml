@@ -1,0 +1,10 @@
+# dsh-plugin-git-status bundle patch layer.
+#
+# `dsh plugin --profile <name> add dsh-plugin-git-status` installs this package
+# and — because it declares `dsh.bundle.patch` — reconciles it into the
+# profile's `dsh.profile.bundles` layer stack, so this row mounts automatically
+# (host half via the Loader; the client half is picked up by the
+# client-modules scan of the same loader entry).
+- insert:
+    - id: git-status
+      name: 'dsh-plugin-git-status'

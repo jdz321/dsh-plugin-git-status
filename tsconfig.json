@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": false,
+    "declaration": true,
+    "outDir": "lib",
+    "rootDir": "src"
+  },
+  "include": ["src/index.ts", "src/types.ts"]
+}
