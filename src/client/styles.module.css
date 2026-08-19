@@ -53,10 +53,6 @@
   cursor: pointer;
 }
 
-.summaryChanges:hover {
-  text-decoration: underline;
-}
-
 .summaryChanges:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: 2px;
@@ -93,18 +89,24 @@
 
 .menu {
   position: absolute;
-  top: calc(100% + 6px);
   left: 0;
-  z-index: 1000;
-  min-width: 300px;
-  max-width: 480px;
-  max-height: 320px;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(360px, calc(100vh - 96px));
   overflow-y: auto;
-  padding: 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 10px;
-  background: var(--dsw-alias-bg-overlay);
-  box-shadow: 0 8px 24px var(--dsw-alias-bg-mask-1);
+  padding: 4px;
+  /* Surface tokens match the shared MenuDropdown card (ui-primitives
+     Menu.module.css / ModelSelect) so every dropdown reads as one material. */
+  border: 1px solid var(--dsw-alias-border-inverted);
+  border-radius: 12px;
+  background: var(--dsw-specific-menu);
+  box-shadow: var(--dsw-shadow-lv3);
+  color: var(--dsw-alias-label-primary);
+  --dsw-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsw-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .group {
@@ -113,30 +115,30 @@
 
 .groupTitle {
   display: block;
-  padding: 4px 8px 2px;
-  font-size: 11px;
+  padding: 6px 8px 2px;
+  font-size: 12px;
   line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
 }
 
 .file {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  padding: 3px 8px;
+  min-height: 28px;
+  padding: 4px 8px;
   border-radius: 6px;
-}
-
-.file:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
 }
 
 .status {
   flex: none;
   min-width: 22px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 20px;
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -153,6 +155,7 @@
 }
 
 .path {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,7 +165,7 @@
 
 .original {
   flex: none;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 20px;
   color: var(--dsw-alias-label-tertiary);
 }

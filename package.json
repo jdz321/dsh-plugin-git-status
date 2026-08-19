@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-git-status",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "DeepSeek Harness plugin: a read-only workspace Git status panel for the composer tool row and a git_status model tool.",
   "type": "module",
   "license": "MIT",
