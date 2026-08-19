@@ -1,0 +1,9 @@
+node_modules/
+.pnpm-store/
+.npm-cache/
+*.log
+
+# Local agent/skill infrastructure, not part of the plugin package.
+.agents/
+.claude/
+skills-lock.json

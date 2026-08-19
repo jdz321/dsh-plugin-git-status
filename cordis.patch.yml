@@ -1,0 +1,3 @@
+- insert:
+    - id: dsh-plugin-git-status
+      name: dsh-plugin-git-status
