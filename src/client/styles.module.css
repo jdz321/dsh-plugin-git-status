@@ -44,12 +44,23 @@
 }
 
 .summaryChanges {
-  cursor: pointer;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--dsw-alias-state-warn-primary);
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
 }
 
 .summaryChanges:hover {
   text-decoration: underline;
+}
+
+.summaryChanges:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .refresh {
