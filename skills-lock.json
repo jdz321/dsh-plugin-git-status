@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "build-deepseek-harness-plugin": {
+      "source": "oil-oil/build-deepseek-harness-plugin",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "bf98788a42598ea1333e29397e34710f416e2d3c29a07450ad14b3e3fd5a05a0"
+    }
+  }
+}

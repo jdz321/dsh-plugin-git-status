@@ -3,10 +3,7 @@ node_modules/
 .npm-cache/
 *.log
 
-# Local agent/skill infrastructure, not part of the plugin package.
-.agents/
-.claude/
-skills-lock.json
-
 # Temporary verification profile (not shipped).
 .test-dsh/
+
+lib/
