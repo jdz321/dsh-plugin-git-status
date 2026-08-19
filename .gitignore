@@ -7,3 +7,6 @@ node_modules/
 .agents/
 .claude/
 skills-lock.json
+
+# Temporary verification profile (not shipped).
+.test-dsh/
