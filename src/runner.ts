@@ -5,7 +5,7 @@
  * @module dsh-plugin-git-status/runner
  */
 
-import type { ShellExecRequest, ShellRunResult } from '@deepseek-ai/dsh-shell'
+import type { ShellExecRequest, ShellExecutor, ShellRunResult } from '@deepseek-ai/dsh-shell'
 import type {
   GitStatusBranch,
   GitStatusCommit,
@@ -13,12 +13,6 @@ import type {
   GitStatusEntry,
   GitStatusResult,
 } from './types.js'
-
-/** Structural face of the DSH bash executor this package consumes. */
-export interface ShellRunner {
-  resolve(request: ShellExecRequest): unknown
-  run(spec: unknown): Promise<ShellRunResult>
-}
 
 /** Porcelain conflict pairs: both columns in conflict states. */
 const CONFLICT_XY = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'])
@@ -99,12 +93,12 @@ export function parseStatus(text: string): {
 }
 
 /**
- * Read the git status of one directory through a shell runner.
+ * Read the git status of one directory through the shell executor.
  * @param shell - the bash executor service.
  * @param cwd - absolute directory to inspect.
  * @returns the parsed status summary, or a structured failure.
  */
-export async function runGitStatus(shell: ShellRunner, cwd: string): Promise<GitStatusResult> {
+export async function runGitStatus(shell: ShellExecutor, cwd: string): Promise<GitStatusResult> {
   const runGit = async (command: string): Promise<ShellRunResult> => {
     const request: ShellExecRequest = {
       command,
