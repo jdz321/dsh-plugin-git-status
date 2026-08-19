@@ -16,6 +16,23 @@ creates, modifies, or deletes any file.
   grouped change counts, the file list, and the most recent commit. It accepts
   an optional `cwd`; when omitted it inspects the current session workspace.
 
+## Screenshots
+
+Clean workspace — the chip shows the branch and a green "✓ clean" summary:
+
+![Clean workspace](assets/clean.png)
+
+Workspace with changes — the change count is a clickable text that opens the
+grouped file list:
+
+![Workspace with changes](assets/changes.png)
+
+Workspace with changes, file list expanded — grouped by conflicted / staged /
+unstaged / untracked; each row shows the porcelain status code, the path, and
+the original path for renames:
+
+![Workspace with changes, file list expanded](assets/changes-expanded.png)
+
 ## Supported Harness version
 
 `0.1.0-rc.7` (the plugin peer-depends on the same `@deepseek-ai/*` package
