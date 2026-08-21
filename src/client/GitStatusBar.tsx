@@ -74,18 +74,21 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, t 
     }
   }, [cwd, status])
 
-  // Read the configured auto-refresh interval once per workspace.
+  // Re-read the configured auto-refresh interval from the Host. Called on
+  // workspace change and when the tab becomes visible again, so a change made
+  // in the plugin settings card applies without a page reload.
+  const refreshConfig = useCallback(async () => {
+    const result = await getPollConfig()
+    if (result.ok) setPollIntervalMs(result.value.refreshIntervalMs)
+  }, [getPollConfig])
+
   useEffect(() => {
     if (cwd === undefined) {
       setPollIntervalMs(null)
       return
     }
-    let cancelled = false
-    void getPollConfig().then((result) => {
-      if (!cancelled && result.ok) setPollIntervalMs(result.value.refreshIntervalMs)
-    })
-    return () => { cancelled = true }
-  }, [cwd, getPollConfig])
+    void refreshConfig()
+  }, [cwd, refreshConfig])
 
   // Initial load whenever the workspace changes.
   useEffect(() => {
@@ -117,6 +120,7 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, t 
       if (document.visibilityState === 'visible') {
         start()
         void load()
+        void refreshConfig()
       } else {
         stop()
       }
@@ -126,7 +130,7 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, t 
       stop()
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [cwd, load, pollIntervalMs])
+  }, [cwd, load, pollIntervalMs, refreshConfig])
 
   if (cwd === undefined || snapshot === null || !snapshot.isRepo) return null
 

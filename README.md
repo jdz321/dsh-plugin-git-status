@@ -62,9 +62,14 @@ dsh plugin --profile <name> add github:<owner>/dsh-plugin-git-status#0123456789a
 
 ## Configuration
 
-The panel auto-refresh cadence is configurable through the plugin's Cordis
-row. To change it, add a `config` block for the `dsh-plugin-git-status` row in
-your profile's `cordis.patch.yml`:
+The panel auto-refresh cadence is configurable at runtime from the browser:
+open **Settings → Plugins** and edit the **Git status** card
+(`refreshIntervalMs`), like the terminal plugin's command-timeout card. The
+change is written to the Host settings document and takes effect live (the
+panel re-reads it when the tab becomes visible again).
+
+It can also be set through the plugin's Cordis row. Add a `config` block for
+the `dsh-plugin-git-status` row in your profile's `cordis.patch.yml`:
 
 ```yaml
 - id: dsh-plugin-git-status

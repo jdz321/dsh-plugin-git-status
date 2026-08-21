@@ -8,6 +8,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { runGitStatus } from './git'
@@ -15,6 +16,9 @@ import type { GitStatusSnapshot, PollConfig } from './types'
 
 export const name = 'dsh-plugin-git-status'
 export const inject = ['tools']
+
+/** Settings namespace owned by this plugin; the plugin-config card edits it. */
+export const SETTINGS_NS = settingsNamespace('dsh-plugin-git-status')
 
 /** Plugin configuration. */
 export interface Config {
@@ -99,8 +103,17 @@ const TOOL_DESCRIPTION =
 
 /** Remote service consumed by the browser panel. */
 export class GitStatusService extends TypertRemoteService {
-  constructor(ctx: Context, private readonly config: Config) {
+  /** Live configuration source; defaults to the composition entry until the settings section attaches. */
+  private source: () => Config
+
+  constructor(ctx: Context, entry: Config) {
     super(ctx, 'gitStatus')
+    this.source = () => entry
+  }
+
+  /** The settings section hands the live (document-resolved) config source here. */
+  setSource(source: () => Config): void {
+    this.source = source
   }
 
   /** Inspect the git status of one directory (defaults to the host cwd). */
@@ -108,16 +121,24 @@ export class GitStatusService extends TypertRemoteService {
     return runGitStatus(cwd)
   }
 
-  /** Panel auto-refresh configuration. */
+  /** Panel auto-refresh configuration, read live from the settings document. */
   async getPollConfig(): Promise<PollConfig> {
-    return { refreshIntervalMs: this.config.refreshIntervalMs }
+    return { refreshIntervalMs: this.source().refreshIntervalMs }
   }
 }
 
 export function apply(ctx: Context, config: Config): void {
-  // Direct construction (not ctx.plugin) so the service receives the config;
+  // Direct construction (not ctx.plugin) so the service receives the entry;
   // the Service base registers itself and is unregistered with this fiber.
-  new GitStatusService(ctx, config)
+  const service = new GitStatusService(ctx, config)
+
+  // Register the editable settings namespace: the composition entry is the
+  // base layer, and the document (edited from the Plugins settings card) is
+  // the user layer. setSource keeps the Remote reading the live value.
+  installSettingsSection(ctx, SETTINGS_NS, Config, config, {
+    setSource: (current) => { service.setSource(current as () => Config) },
+    onChange: () => {},
+  })
 
   ctx.tools.register(defineTool({
     name: 'git_status',

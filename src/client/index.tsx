@@ -6,16 +6,21 @@
  * service in `inject`. A single plugin cannot both mount the namespace and
  * inject it (that would deadlock), so the mount lives in a provider child
  * plugin and the panel in a consumer child plugin that waits on
- * `remote.gitStatus`.
+ * `remote.gitStatus`. The settings card binds the plugin's own settings
+ * namespace directly.
  */
 
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only merges: the client Remote surface, the `conversation.input.right`
-// slot declaration, and the locale service.
+// slot declaration, the settings scope, and the plugin-card slot declaration.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { GitStatusBar } from './GitStatusBar'
+import { GitStatusPluginCard, type GitPluginSettings } from './PluginConfigCard'
 import { en, zh, type GitStatusKey } from './locales'
 import { gitStatusRemote } from '../remote'
 
@@ -27,6 +32,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'git-status'
+
+/** Settings namespace value matching the Host `SETTINGS_NS`. */
+const SETTINGS_NS_VALUE = 'dsh-plugin-git-status'
 
 /** Required services of the outer plugin: locale for the copy. */
 export const inject = ['locale']
@@ -64,6 +72,23 @@ export function apply(ctx: ClientContext): void {
           getPollConfig: () => panelCtx.remote.gitStatus.getPollConfig(),
         }),
       }, GitStatusBar))
+    },
+  })
+
+  // Settings card: registers into the plugin-configuration section, keyed by
+  // the plugin's settings namespace. Root scope — the inject face carries the
+  // bound scope, and the card derives its own snapshot from it.
+  ctx.plugin({
+    name: 'git-status-settings',
+    inject: ['slots', 'locale', 'settingsScope'],
+    apply: (settingsCtx: ClientContext): void => {
+      const scope = settingsCtx.settingsScope.bind<GitPluginSettings>({ namespace: SETTINGS_NS_VALUE })
+      settingsCtx.slots.inject('settings.plugin.item', () => settingsCtx.slots.register({
+        name: 'settings.plugin.item',
+        key: SETTINGS_NS_VALUE,
+        locale: NS,
+        inject: (): { scope: SettingsScope<GitPluginSettings> } => ({ scope }),
+      }, GitStatusPluginCard))
     },
   })
 }

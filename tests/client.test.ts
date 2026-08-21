@@ -11,10 +11,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { apply, inject } from '../src/client/index'
 import type { GitStatusSnapshot } from '../src/types'
 
-// The real component pulls in the browser UI-primitives bundle (with CSS);
+// The real components pull in the browser UI-primitives bundle (with CSS);
 // the apply-time behavior under test only needs the registration to carry a
-// component value, so stub it.
+// component value, so stub them.
 vi.mock('../src/client/GitStatusBar', () => ({ GitStatusBar: () => null }))
+vi.mock('../src/client/PluginConfigCard', () => ({ GitStatusPluginCard: () => null }))
 
 function makeSnapshot(): GitStatusSnapshot {
   return {
@@ -55,6 +56,25 @@ async function bench() {
 
   ctx.provide('locale', { register: () => () => {} })
 
+  // Minimal `settingsScope` face: bind returns a scope in the unavailable
+  // state (the settings card derives from it but the panel does not need it).
+  ctx.provide('settingsScope', {
+    bind: () => ({
+      getSnapshot: () => ({
+        status: 'unavailable',
+        value: undefined,
+        base: undefined,
+        user: undefined,
+        revision: undefined,
+        writable: false,
+        mode: 'memory',
+      }),
+      subscribe: () => () => {},
+      set: async () => {},
+      unset: async () => {},
+    }),
+  })
+
   // Minimal `remote` face whose `$mount` provides `remote.gitStatus`, mirroring
   // the real Gateway ClientRemoteService.
   class FakeRemoteService extends Service {
@@ -83,6 +103,7 @@ async function bench() {
     fiber,
     calls,
     entry: () => stored.get('conversation.input.right')?.[0],
+    settingsEntry: () => stored.get('settings.plugin.item')?.[0],
   }
 }
 
@@ -103,5 +124,13 @@ describe('git-status browser plugin', () => {
     const result = await status('/some/cwd')
     expect(result).toEqual({ ok: true, value: makeSnapshot() })
     expect(b.calls).toEqual(['/some/cwd'])
+  })
+
+  it('registers the plugin-config card keyed by the settings namespace', async () => {
+    const b = await bench()
+    const card = b.settingsEntry()
+    expect(card).toBeDefined()
+    expect(card?.options).toMatchObject({ key: 'dsh-plugin-git-status' })
+    expect(card?.locale).toBe('git-status')
   })
 })

@@ -36,6 +36,7 @@ const HOST_EXTERNALS = [
   '@deepseek-ai/dsh-typert-protocol',
   '@deepseek-ai/dsh-tools',
   '@deepseek-ai/dsh-llm',
+  '@deepseek-ai/dsh-settings',
   '@deepseek-ai/schemastery',
   'zod',
 ] as const
