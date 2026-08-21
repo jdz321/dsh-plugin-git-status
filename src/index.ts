@@ -7,13 +7,29 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import Schema from '@deepseek-ai/schemastery'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { runGitStatus } from './git'
-import type { GitStatusSnapshot } from './types'
+import type { GitStatusSnapshot, PollConfig } from './types'
 
 export const name = 'dsh-plugin-git-status'
 export const inject = ['tools']
+
+/** Plugin configuration. */
+export interface Config {
+  /**
+   * Milliseconds between automatic panel refreshes. `0` disables auto-refresh;
+   * the panel then only updates on the manual refresh button or a session
+   * change.
+   */
+  refreshIntervalMs: number
+}
+
+/** Schemastery config: invalid values fail loud at load time. */
+export const Config: Schema<Config> = Schema.object({
+  refreshIntervalMs: Schema.natural().max(3_600_000).default(30_000),
+})
 
 const FILE_ENTRY_SCHEMA = {
   type: 'object',
@@ -83,7 +99,7 @@ const TOOL_DESCRIPTION =
 
 /** Remote service consumed by the browser panel. */
 export class GitStatusService extends TypertRemoteService {
-  constructor(ctx: Context) {
+  constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'gitStatus')
   }
 
@@ -91,10 +107,17 @@ export class GitStatusService extends TypertRemoteService {
   async status(cwd?: string): Promise<GitStatusSnapshot> {
     return runGitStatus(cwd)
   }
+
+  /** Panel auto-refresh configuration. */
+  async getPollConfig(): Promise<PollConfig> {
+    return { refreshIntervalMs: this.config.refreshIntervalMs }
+  }
 }
 
-export function apply(ctx: Context): void {
-  ctx.plugin(GitStatusService)
+export function apply(ctx: Context, config: Config): void {
+  // Direct construction (not ctx.plugin) so the service receives the config;
+  // the Service base registers itself and is unregistered with this fiber.
+  new GitStatusService(ctx, config)
 
   ctx.tools.register(defineTool({
     name: 'git_status',

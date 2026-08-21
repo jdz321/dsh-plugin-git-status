@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { GitStatusSnapshotSchema } from './schema'
+import { GitStatusSnapshotSchema, PollConfigSchema } from './schema'
 
 export const TYPERT = {
   package: 'dsh-plugin-git-status',
@@ -36,6 +36,20 @@ export const TYPERT = {
         mode: 'strict',
         typeSymbol: 'dsh-plugin-git-status/types#GitStatusSnapshot',
         schema: GitStatusSnapshotSchema,
+      },
+      sourceLocation: { file: 'src/index.ts', line: 1, column: 1 },
+    },
+    {
+      id: 'dsh-plugin-git-status#gitStatus/getPollConfig',
+      service: 'gitStatus',
+      namespace: 'gitStatus',
+      method: 'getPollConfig',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-plugin-git-status/types#PollConfig',
+        schema: PollConfigSchema,
       },
       sourceLocation: { file: 'src/index.ts', line: 1, column: 1 },
     },

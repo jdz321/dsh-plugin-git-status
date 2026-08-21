@@ -6,11 +6,12 @@
 
 import { z } from 'zod'
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
-import { GitStatusSnapshotSchema } from './schema'
-import type { GitStatusSnapshot } from './types'
+import { GitStatusSnapshotSchema, PollConfigSchema } from './schema'
+import type { GitStatusSnapshot, PollConfig } from './types'
 
 interface GitStatusRemoteNamespace {
   status: (cwd?: string) => Promise<RemoteResult<GitStatusSnapshot>>
+  getPollConfig: () => Promise<RemoteResult<PollConfig>>
 }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -45,6 +46,19 @@ export const gitStatusRemote: TypertRemoteContribution = {
         mode: 'strict',
         typeSymbol: 'dsh-plugin-git-status/types#GitStatusSnapshot',
         schema: GitStatusSnapshotSchema,
+      },
+    },
+    {
+      id: 'dsh-plugin-git-status#gitStatus/getPollConfig',
+      service: 'gitStatus',
+      namespace: 'gitStatus',
+      method: 'getPollConfig',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-plugin-git-status/types#PollConfig',
+        schema: PollConfigSchema,
       },
     },
   ],

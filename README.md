@@ -60,6 +60,26 @@ commit SHA):
 dsh plugin --profile <name> add github:<owner>/dsh-plugin-git-status#0123456789abcdef0123456789abcdef
 ```
 
+## Configuration
+
+The panel auto-refresh cadence is configurable through the plugin's Cordis
+row. To change it, add a `config` block for the `dsh-plugin-git-status` row in
+your profile's `cordis.patch.yml`:
+
+```yaml
+- id: dsh-plugin-git-status
+  name: dsh-plugin-git-status
+  config:
+    refreshIntervalMs: 60000
+```
+
+- `refreshIntervalMs` — milliseconds between automatic refreshes
+  (default `30000`). Set it to `0` to disable auto-refresh entirely; the panel
+  then only updates on the manual refresh button or when the workspace
+  changes.
+- Auto-refresh is also paused while the browser tab is hidden, and resumes
+  (with an immediate refresh) when the tab becomes visible again.
+
 ## Update / remove
 
 Use the CLI's update and remove commands:

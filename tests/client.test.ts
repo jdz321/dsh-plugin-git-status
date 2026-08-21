@@ -68,6 +68,7 @@ async function bench() {
           calls.push(cwd)
           return Promise.resolve({ ok: true as const, value: makeSnapshot() })
         },
+        getPollConfig: () => Promise.resolve({ ok: true as const, value: { refreshIntervalMs: 30_000 } }),
       })
       return async () => {}
     }

@@ -61,6 +61,7 @@ export function apply(ctx: ClientContext): void {
         locale: NS,
         inject: () => ({
           status: (cwd: string) => panelCtx.remote.gitStatus.status(cwd),
+          getPollConfig: () => panelCtx.remote.gitStatus.getPollConfig(),
         }),
       }, GitStatusBar))
     },

@@ -36,6 +36,12 @@ export interface GitRecentCommit {
   date: string
 }
 
+/** Panel auto-refresh configuration delivered to the browser half. */
+export interface PollConfig {
+  /** Milliseconds between automatic refreshes; 0 disables auto-refresh. */
+  refreshIntervalMs: number
+}
+
 /** Structured git status for one directory. */
 export interface GitStatusSnapshot {
   /** Absolute path that was inspected. */

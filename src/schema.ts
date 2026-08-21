@@ -38,3 +38,7 @@ export const GitStatusSnapshotSchema = z.object({
   }),
   recentCommit: GitRecentCommitSchema.optional(),
 })
+
+export const PollConfigSchema = z.object({
+  refreshIntervalMs: z.number().int(),
+})

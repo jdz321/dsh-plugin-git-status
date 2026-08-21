@@ -1,7 +1,8 @@
 /**
  * Read-only git status chip rendered in the composer tool row. Fetches the
- * current workspace's status through the plugin Remote, refreshes every 30s,
- * and expands a grouped change list on click.
+ * current workspace's status through the plugin Remote, auto-refreshes at the
+ * interval configured on the Host (paused while the tab is hidden), and
+ * expands a grouped change list on click.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -13,15 +14,13 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { GitFileEntry, GitStatusSnapshot } from '../types'
+import type { GitFileEntry, GitStatusSnapshot, PollConfig } from '../types'
 import css from './styles.module.css'
-
-/** Auto-refresh cadence for the panel. */
-const REFRESH_INTERVAL_MS = 30_000
 
 /** Business face injected by the slot registration. */
 export interface GitStatusBarInjected {
   status: (cwd: string) => Promise<RemoteResult<GitStatusSnapshot>>
+  getPollConfig: () => Promise<RemoteResult<PollConfig>>
 }
 
 export type GitStatusBarProps = PropsRuntime<'conversation.input.right'> & GitStatusBarInjected & PropsLocale<'git-status'>
@@ -53,11 +52,13 @@ function FileGroup({ title, entries, statusClass, t }: FileGroupProps) {
   )
 }
 
-export function GitStatusBar({ sessionId, useSessions, status, t }: GitStatusBarProps) {
+export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, t }: GitStatusBarProps) {
   const cwd = useSessions((state) => state.byId[sessionId]?.cwd)
   const [snapshot, setSnapshot] = useState<GitStatusSnapshot | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  /** Auto-refresh cadence from the Host; `null` until the config is known. */
+  const [pollIntervalMs, setPollIntervalMs] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   useDismissOnOutsidePointer(rootRef, expanded, setExpanded)
@@ -73,6 +74,20 @@ export function GitStatusBar({ sessionId, useSessions, status, t }: GitStatusBar
     }
   }, [cwd, status])
 
+  // Read the configured auto-refresh interval once per workspace.
+  useEffect(() => {
+    if (cwd === undefined) {
+      setPollIntervalMs(null)
+      return
+    }
+    let cancelled = false
+    void getPollConfig().then((result) => {
+      if (!cancelled && result.ok) setPollIntervalMs(result.value.refreshIntervalMs)
+    })
+    return () => { cancelled = true }
+  }, [cwd, getPollConfig])
+
+  // Initial load whenever the workspace changes.
   useEffect(() => {
     if (cwd === undefined) {
       setSnapshot(null)
@@ -80,9 +95,38 @@ export function GitStatusBar({ sessionId, useSessions, status, t }: GitStatusBar
       return
     }
     void load()
-    const timer = setInterval(() => { void load() }, REFRESH_INTERVAL_MS)
-    return () => { clearInterval(timer) }
   }, [cwd, load])
+
+  // Auto-refresh timer; paused while the tab is hidden, resumed (with an
+  // immediate refresh) when it becomes visible again.
+  useEffect(() => {
+    if (cwd === undefined || pollIntervalMs === null || pollIntervalMs <= 0) return
+    let timer: ReturnType<typeof setInterval> | undefined
+    const stop = () => {
+      if (timer !== undefined) {
+        clearInterval(timer)
+        timer = undefined
+      }
+    }
+    const start = () => {
+      stop()
+      timer = setInterval(() => { void load() }, pollIntervalMs)
+    }
+    start()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        start()
+        void load()
+      } else {
+        stop()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [cwd, load, pollIntervalMs])
 
   if (cwd === undefined || snapshot === null || !snapshot.isRepo) return null
 
