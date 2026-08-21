@@ -19,7 +19,7 @@ import { transform } from 'lightningcss'
 
 const id = 'dsh-plugin-git-status'
 
-/** Shared browser module table the shell seeds at boot (see packages/client/web/src/seed.ts). */
+/** Shared browser module table the shell seeds at boot (see packages/client/web/src/platform.ts). */
 const CLIENT_EXTERNALS = [
   'react',
   'react/jsx-runtime',
@@ -27,10 +27,7 @@ const CLIENT_EXTERNALS = [
   'react-dom/client',
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-web-react',
   '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-ui-attachment',
-  '@deepseek-ai/dsh-client-schema-form',
 ] as const
 
 /** Node-side runtime imports provided by the Harness host, never bundled. */
@@ -39,6 +36,7 @@ const HOST_EXTERNALS = [
   '@deepseek-ai/dsh-typert-protocol',
   '@deepseek-ai/dsh-tools',
   '@deepseek-ai/dsh-llm',
+  '@deepseek-ai/schemastery',
   'zod',
 ] as const
 
