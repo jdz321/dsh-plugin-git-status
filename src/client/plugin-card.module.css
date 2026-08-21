@@ -1,12 +1,24 @@
-/* Plugin configuration card in the Plugins settings section. Matches the
-   shared plugin-card material (border-l2, layer-3 surface, radius 12) with
-   semantic tokens so both color schemes are covered. */
+/* Plugin configuration card in the Plugins settings section. Mirrors the
+   official plugin-card material (PluginCard.module.css / fields.module.css):
+   the same surface tokens, collapse behavior, field layout, and footer
+   buttons, so the card reads as part of the shared plugin configuration UI. */
 
 .card {
   list-style: none;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 12px;
   background: var(--dsw-alias-bg-layer-3);
+  transition: border-color 0.16s, background 0.16s;
+}
+
+.card:hover {
+  border-color: var(--dsw-alias-label-dimmed);
+}
+
+/* An open card reads as the one being worked on, not merely taller. */
+.cardOpen {
+  background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-label-dimmed);
 }
 
 .header {
@@ -74,6 +86,19 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* Carried on the header so a collapsed card still says it holds edits. */
+.pending {
+  flex: none;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--dsw-alias-bg-module-platform);
+  color: var(--dsw-alias-label-secondary);
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -81,7 +106,7 @@
   padding: 12px 0;
 }
 
-.fieldHead {
+.head {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -96,6 +121,12 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .badge {
   border-radius: 999px;
   padding: 1px 8px;
@@ -107,27 +138,64 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+.reset {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.reset:hover:not(:disabled) {
+  color: var(--dsw-alias-label-primary);
+}
+
+.reset:disabled {
+  cursor: default;
+}
+
 .input {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
   height: 34px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-3);
+  font: inherit;
   font-size: 13px;
-  line-height: 20px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
 }
 
 .input:focus-visible {
-  outline: 2px solid var(--dsw-alias-brand-primary);
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary);
 }
 
 .input:disabled {
-  opacity: 0.5;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: default;
+}
+
+.inputInvalid {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-label-error);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-3);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+.invalid {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-error);
 }
 
 .hint {
@@ -137,13 +205,6 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.error {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--dsw-alias-state-error-primary);
-}
-
 .footer {
   display: flex;
   align-items: center;
@@ -151,4 +212,53 @@
   gap: 8px;
   padding: 12px 0 4px;
   border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+.failed {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-error);
+}
+
+.discard,
+.save {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.discard {
+  border-color: var(--dsw-alias-border-l2);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.discard:hover:not(:disabled) {
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-label-dimmed);
+}
+
+.save {
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-layer-3);
+}
+
+.discard:disabled,
+.save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.discard:focus-visible,
+.save:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
 }

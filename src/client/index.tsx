@@ -57,11 +57,14 @@ export function apply(ctx: ClientContext): void {
     },
   })
 
-  // Consumer: waits for `remote.gitStatus`, then registers the panel.
+  // Consumer: waits for `remote.gitStatus`, then registers the panel. The
+  // panel also binds the settings scope so a config-card save restarts its
+  // auto-refresh timer immediately.
   ctx.plugin({
     name: 'git-status-panel',
-    inject: ['slots', 'remote', 'remote.gitStatus', 'locale'],
+    inject: ['slots', 'remote', 'remote.gitStatus', 'locale', 'settingsScope'],
     apply: (panelCtx: ClientContext): void => {
+      const pollScope = panelCtx.settingsScope.bind<GitPluginSettings>({ namespace: SETTINGS_NS_VALUE })
       panelCtx.slots.inject('conversation.input.right', () => panelCtx.slots.register({
         name: 'conversation.input.right',
         id: 'git-status',
@@ -70,6 +73,7 @@ export function apply(ctx: ClientContext): void {
         inject: () => ({
           status: (cwd: string) => panelCtx.remote.gitStatus.status(cwd),
           getPollConfig: () => panelCtx.remote.gitStatus.getPollConfig(),
+          pollConfig: pollScope,
         }),
       }, GitStatusBar))
     },
