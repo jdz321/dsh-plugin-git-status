@@ -10,14 +10,16 @@
  * namespace directly.
  */
 
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only merges: the client Remote surface, the `conversation.input.right`
 // slot declaration, the settings scope, and the plugin-card slot declaration.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import { GitStatusBar } from './GitStatusBar'
 import { GitStatusPluginCard, type GitPluginSettings } from './PluginConfigCard'

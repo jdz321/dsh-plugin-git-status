@@ -8,7 +8,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { runGitStatus } from './git'
@@ -18,7 +18,7 @@ export const name = 'dsh-plugin-git-status'
 export const inject = ['tools']
 
 /** Settings namespace owned by this plugin; the plugin-config card edits it. */
-export const SETTINGS_NS = settingsNamespace('dsh-plugin-git-status')
+export const SETTINGS_NS = 'dsh-plugin-git-status'
 
 /** Plugin configuration. */
 export interface Config {
@@ -134,10 +134,14 @@ export function apply(ctx: Context, config: Config): void {
 
   // Register the editable settings namespace: the composition entry is the
   // base layer, and the document (edited from the Plugins settings card) is
-  // the user layer. setSource keeps the Remote reading the live value.
-  installSettingsSection(ctx, SETTINGS_NS, Config, config, {
-    setSource: (current) => { service.setSource(current as () => Config) },
-    onChange: () => {},
+  // the user layer. setSource keeps the Remote reading the live value. The
+  // settings provider may be absent (no settings document); the plugin then
+  // keeps running on its composition entry.
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, SETTINGS_NS, Config, config, {
+      setSource: (current) => { service.setSource(current as () => Config) },
+      onChange: () => {},
+    })
   })
 
   ctx.tools.register(defineTool({

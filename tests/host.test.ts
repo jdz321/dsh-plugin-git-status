@@ -1,7 +1,7 @@
 /**
  * Host-half smoke test: `apply` registers the editable settings namespace
- * (via `installSettingsSection`) and the Remote service reads the live
- * settings-resolved config through the source thunk.
+ * (through the settings provider's `installSection`) and the Remote service
+ * reads the live settings-resolved config through the source thunk.
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -10,7 +10,7 @@ import { apply } from '../src/index'
 
 interface FakeScope {
   get: () => { refreshIntervalMs: number }
-  set: (field: string, value: unknown) => Promise<void>
+  watch: (listener: () => void) => () => void
 }
 
 async function bench() {
@@ -27,11 +27,20 @@ async function bench() {
       registrations.push({ ns, schema, base: options.base })
       return {
         get: () => scopeValue,
-        set: async (field: string, value: unknown) => {
-          if (field === 'refreshIntervalMs') scopeValue = { refreshIntervalMs: Number(value) }
-        },
         watch: () => () => {},
       } as unknown as FakeScope
+    }
+
+    installSection(
+      _owner: Context,
+      ns: string,
+      schema: unknown,
+      entry: unknown,
+      hooks: { setSource: (current: () => unknown) => void; onChange: () => void },
+    ): void {
+      const scope = this.register(ns, schema, { base: entry })
+      hooks.setSource(() => scope.get())
+      hooks.onChange()
     }
   }
   new FakeSettingsService(ctx)
@@ -46,7 +55,7 @@ async function bench() {
   new FakeToolsService(ctx)
 
   apply(ctx, { refreshIntervalMs: 30_000 })
-  // installSettingsSection runs through ctx.inject, which settles on a tick.
+  // installSection runs through ctx.inject, which settles on a tick.
   await new Promise(resolve => setTimeout(resolve, 0))
 
   return { ctx, registrations, setScopeValue: (v: { refreshIntervalMs: number }) => { scopeValue = v } }

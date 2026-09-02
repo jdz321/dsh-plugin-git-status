@@ -13,8 +13,10 @@ import {
   useDismissOnOutsidePointer,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { GitFileEntry, GitStatusSnapshot, PollConfig } from '../types'
 import type { GitPluginSettings } from './PluginConfigCard'
 import css from './styles.module.css'
@@ -57,7 +59,7 @@ function FileGroup({ title, entries, statusClass, t }: FileGroupProps) {
 }
 
 export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, pollConfig, t }: GitStatusBarProps) {
-  const cwd = useSessions((state) => state.byId[sessionId]?.cwd)
+  const cwd = useSessions((state: { byId: Record<string, { cwd?: string } | undefined> }) => state.byId[sessionId]?.cwd)
   const [snapshot, setSnapshot] = useState<GitStatusSnapshot | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)

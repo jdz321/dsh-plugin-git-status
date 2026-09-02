@@ -35,8 +35,9 @@ the original path for renames:
 
 ## Supported Harness version
 
-`0.1.0-rc.7` (the plugin peer-depends on the same `@deepseek-ai/*` package
-versions).
+`0.1.2-alpha.4` (the plugin peer-depends on the same `@deepseek-ai/*` package
+versions). For older Harness releases use plugin `0.3.0` (`0.1.0-rc.7`) or
+`0.4.0` (`0.1.1-rc.1`).
 
 ## Install
 
@@ -106,6 +107,11 @@ read-only `git status` / `git log` commands in the inspected directory.
 - Paths with two or more consecutive spaces are read from `git status -z`, so
   they are preserved exactly.
 - The panel does not offer inline file operations; it only reports status.
+
+## Changelog
+
+Notable changes per release are documented in
+[CHANGELOG.md](./CHANGELOG.md).
 
 ## Development
 
