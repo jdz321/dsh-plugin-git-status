@@ -1,81 +1,75 @@
 /**
- * Host-half smoke test: `apply` registers the editable settings namespace
- * (through the settings provider's `installSection`) and the Remote service
- * reads the live settings-resolved config through the source thunk.
+ * Host-half smoke test: `apply` registers the `git_status` tool and the
+ * `gitStatus` Remote service, and `getPollConfig` reads the volatile config
+ * reference the Loader keeps committing into — a Settings write updates that
+ * value in place, with no remount.
  */
 
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
+import type { Volatile } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { apply } from '../src/index'
+import { apply, SETTINGS_ENTRY_ID } from '../src/index'
+import type { Config } from '../src/index'
 
-interface FakeScope {
-  get: () => { refreshIntervalMs: number }
-  watch: (listener: () => void) => () => void
+interface RegisteredTool {
+  name: string
+  description: string
+  parameters: unknown
+  execute: (args: { cwd?: string }, exec: unknown) => Promise<unknown>
 }
 
-async function bench() {
+/** A stand-in for the Loader-committed volatile reference. */
+function volatileOf(value: number): Volatile<number> & { commit: (next: number) => void } {
+  let current = value
+  return {
+    get: () => current,
+    commit: (next: number) => { current = next },
+  }
+}
+
+function bench() {
   const ctx = new Context()
-  const registrations: Array<{ ns: string; schema: unknown; base: unknown }> = []
-  let scopeValue: { refreshIntervalMs: number } = { refreshIntervalMs: 30_000 }
+  const tools = new Map<string, RegisteredTool>()
+  ctx.provide('tools', {
+    register: (definition: RegisteredTool) => {
+      tools.set(definition.name, definition)
+      return () => { tools.delete(definition.name) }
+    },
+  })
 
-  class FakeSettingsService extends Service {
-    constructor(serviceCtx: Context) {
-      super(serviceCtx, 'settings')
-    }
-
-    register(ns: string, schema: unknown, options: { base: unknown }) {
-      registrations.push({ ns, schema, base: options.base })
-      return {
-        get: () => scopeValue,
-        watch: () => () => {},
-      } as unknown as FakeScope
-    }
-
-    installSection(
-      _owner: Context,
-      ns: string,
-      schema: unknown,
-      entry: unknown,
-      hooks: { setSource: (current: () => unknown) => void; onChange: () => void },
-    ): void {
-      const scope = this.register(ns, schema, { base: entry })
-      hooks.setSource(() => scope.get())
-      hooks.onChange()
-    }
-  }
-  new FakeSettingsService(ctx)
-
-  class FakeToolsService extends Service {
-    constructor(serviceCtx: Context) {
-      super(serviceCtx, 'tools')
-    }
-
-    register() {}
-  }
-  new FakeToolsService(ctx)
-
-  apply(ctx, { refreshIntervalMs: 30_000 })
-  // installSection runs through ctx.inject, which settles on a tick.
-  await new Promise(resolve => setTimeout(resolve, 0))
-
-  return { ctx, registrations, setScopeValue: (v: { refreshIntervalMs: number }) => { scopeValue = v } }
+  const refreshIntervalMs = volatileOf(30_000)
+  // The composition entry the Loader resolves: every field arrives as a
+  // reference, which is exactly what `apply` receives.
+  apply(ctx, { refreshIntervalMs } as Config)
+  return { ctx, tools, refreshIntervalMs }
 }
 
 describe('git-status host plugin', () => {
-  it('registers the settings namespace with the composition entry as base', async () => {
-    const b = await bench()
-    expect(b.registrations).toHaveLength(1)
-    expect(b.registrations[0]?.ns).toBe('dsh-plugin-git-status')
-    expect(b.registrations[0]?.base).toEqual({ refreshIntervalMs: 30_000 })
+  it('registers the git_status tool with an implicit-open parameter root', () => {
+    const b = bench()
+    expect([...b.tools.keys()]).toEqual(['git_status'])
+    const tool = b.tools.get('git_status')
+    expect(tool?.description).toContain('git status')
+    // `defineTool` compiles the implicit-open parameter root into JSON Schema.
+    expect(tool?.parameters).toMatchObject({
+      type: 'object',
+      properties: {
+        cwd: { type: 'string', description: expect.any(String) },
+      },
+    })
   })
 
-  it('getPollConfig reads the live settings-resolved config', async () => {
-    const b = await bench()
+  it('serves the panel auto-refresh configuration from the live volatile reference', async () => {
+    const b = bench()
     const service = b.ctx.get('gitStatus') as { getPollConfig: () => Promise<{ refreshIntervalMs: number }> }
     expect(await service.getPollConfig()).toEqual({ refreshIntervalMs: 30_000 })
 
-    b.setScopeValue({ refreshIntervalMs: 120_000 })
-    // The source thunk reads the settings scope at call time.
+    // The Loader commits a Settings write into the same reference in place.
+    b.refreshIntervalMs.commit(120_000)
     expect(await service.getPollConfig()).toEqual({ refreshIntervalMs: 120_000 })
+  })
+
+  it('addresses its settings form by the Cordis row id the patch inserts', () => {
+    expect(SETTINGS_ENTRY_ID).toBe('dsh-plugin-git-status')
   })
 })

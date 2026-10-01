@@ -3,12 +3,19 @@
  * the package `./typert` export) when the plugin mounts and registers the
  * strict invocation descriptor, so the Gateway can resolve `gitStatus/status`
  * without falling back to source parsing.
+ *
+ * The type is a compile-time guarantee only: `@deepseek-ai/dsh-typert-registry`
+ * is a dev dependency and the import is erased, so the shipped artifact stays a
+ * plain manifest object. Typing it here is what makes a codec that lost its
+ * `create()` factory — the startup failure on 0.2.0-rc.2 — a build error
+ * instead of a refusal at plugin mount.
  */
 
 import { z } from 'zod'
+import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry'
 import { GitStatusSnapshotSchema, PollConfigSchema } from './schema'
 
-export const TYPERT = {
+export const TYPERT: TypertContribution = {
   package: 'dsh-plugin-git-status',
   face: 'host',
   schemas: [],
@@ -28,14 +35,15 @@ export const TYPERT = {
           codec: {
             mode: 'strict',
             typeSymbol: 'dsh-plugin-git-status/types#CwdArg',
-            schema: z.string().optional(),
+            // 0.2.0-rc.2 strict codecs carry a lazily materialized schema factory.
+            create: () => z.string().optional(),
           },
         },
       ],
       result: {
         mode: 'strict',
         typeSymbol: 'dsh-plugin-git-status/types#GitStatusSnapshot',
-        schema: GitStatusSnapshotSchema,
+        create: () => GitStatusSnapshotSchema,
       },
       sourceLocation: { file: 'src/index.ts', line: 1, column: 1 },
     },
@@ -49,7 +57,7 @@ export const TYPERT = {
       result: {
         mode: 'strict',
         typeSymbol: 'dsh-plugin-git-status/types#PollConfig',
-        schema: PollConfigSchema,
+        create: () => PollConfigSchema,
       },
       sourceLocation: { file: 'src/index.ts', line: 1, column: 1 },
     },

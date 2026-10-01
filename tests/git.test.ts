@@ -96,7 +96,8 @@ describe('emptyStatus', () => {
 describe('runGitStatus', () => {
   it('reports a clean repository', () => {
     const dir = mkdtempSync(join(tmpdir(), 'git-status-'))
-    git(dir, ['init', '-q'])
+    // Pin the initial branch: `init.defaultBranch` is machine-local.
+    git(dir, ['init', '-q', '-b', 'main'])
     git(dir, ['config', 'user.email', 'test@example.com'])
     git(dir, ['config', 'user.name', 'Test'])
     writeFileSync(join(dir, 'a.txt'), 'a\n')

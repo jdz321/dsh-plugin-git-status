@@ -98,15 +98,22 @@
   max-height: min(360px, calc(100vh - 96px));
   overflow-y: auto;
   padding: 4px;
-  /* Surface tokens match the shared MenuDropdown card (ui-primitives
-     Menu.module.css / ModelSelect) so every dropdown reads as one material. */
+  /* An opaque layer surface, the non-material half of the pair ui-primitives
+     documents (HoverCard: `bg-layer-1` for the plain panel, `specific-menu` +
+     `backdrop-filter` for the blurred one). `--dsw-specific-menu` is the menu
+     FILL — rgba(248,249,250,.58) in light, rgba(67,69,74,.45) in dark — and
+     MenuSurface only gets away with it because it blurs the page behind itself
+     in a separate layer. This popover paints its own background, so the fill
+     would let the composer show through. */
   border: 1px solid var(--dsw-alias-border-inverted);
   border-radius: 12px;
-  background: var(--dsw-specific-menu);
+  background: var(--dsw-alias-bg-layer-1);
   box-shadow: var(--dsw-shadow-lv3);
   color: var(--dsw-alias-label-primary);
-  --dsw-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  --dsw-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  /* Scrollbar tokens are `--dsh-*` (scrollbar.css); the `--dsw-*` spelling this
+     once carried is declared nowhere, so the menu inherited the global thumb. */
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .group {

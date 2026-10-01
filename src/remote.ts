@@ -38,14 +38,15 @@ export const gitStatusRemote: TypertRemoteContribution = {
           codec: {
             mode: 'strict',
             typeSymbol: 'dsh-plugin-git-status/types#CwdArg',
-            schema: z.string().optional(),
+            // 0.2.0-rc.2 strict codecs carry a lazily materialized schema factory.
+            create: () => z.string().optional(),
           },
         },
       ],
       result: {
         mode: 'strict',
         typeSymbol: 'dsh-plugin-git-status/types#GitStatusSnapshot',
-        schema: GitStatusSnapshotSchema,
+        create: () => GitStatusSnapshotSchema,
       },
     },
     {
@@ -58,7 +59,7 @@ export const gitStatusRemote: TypertRemoteContribution = {
       result: {
         mode: 'strict',
         typeSymbol: 'dsh-plugin-git-status/types#PollConfig',
-        schema: PollConfigSchema,
+        create: () => PollConfigSchema,
       },
     },
   ],
