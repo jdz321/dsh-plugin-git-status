@@ -5,10 +5,10 @@
  * expands a grouped change list on click.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
-  IconBranchOutline16,
-  IconRefreshOutline16,
+  IconBranchOutlineRegular,
+  IconRefreshOutlineRegular,
   Tooltip,
   useDismissOnOutsidePointer,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -16,17 +16,16 @@ import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-cl
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { GitFileEntry, GitStatusSnapshot, PollConfig } from '../types'
-import type { GitPluginSettings } from './PluginConfigCard'
+import type { PollIntervalWatch } from './settings-entry'
 import css from './styles.module.css'
 
 /** Business face injected by the slot registration. */
 export interface GitStatusBarInjected {
   status: (cwd: string) => Promise<RemoteResult<GitStatusSnapshot>>
   getPollConfig: () => Promise<RemoteResult<PollConfig>>
-  /** The plugin's settings scope; its snapshot is the live refresh interval. */
-  pollConfig: SettingsScope<GitPluginSettings>
+  /** Live accepted interval from the Host settings entry, when it is served. */
+  pollWatch: PollIntervalWatch
 }
 
 export type GitStatusBarProps = PropsRuntime<'conversation.input.right'> & GitStatusBarInjected & PropsLocale<'git-status'>
@@ -58,28 +57,20 @@ function FileGroup({ title, entries, statusClass, t }: FileGroupProps) {
   )
 }
 
-export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, pollConfig, t }: GitStatusBarProps) {
+export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, pollWatch, t }: GitStatusBarProps) {
   const cwd = useSessions((state: { byId: Record<string, { cwd?: string } | undefined> }) => state.byId[sessionId]?.cwd)
   const [snapshot, setSnapshot] = useState<GitStatusSnapshot | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  /** Auto-refresh cadence fetched from the Host; fallback while the settings mirror loads. */
+  /** Auto-refresh cadence fetched from the Host; fallback while the settings entry is unserved. */
   const [remoteInterval, setRemoteInterval] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   useDismissOnOutsidePointer(rootRef, expanded, setExpanded)
 
-  // React calls the store callbacks without `this`, so bind the scope's
-  // methods through stable wrappers (the scope itself is stable).
-  const subscribe = useMemo(
-    () => (listener: () => void) => pollConfig.subscribe(listener),
-    [pollConfig],
-  )
-  const getSettingsSnapshot = useMemo(
-    () => () => pollConfig.getSnapshot(),
-    [pollConfig],
-  )
-  const settingsSnapshot = useSyncExternalStore(subscribe, getSettingsSnapshot)
+  // The plugin keeps `pollWatch` stable for the slot entry's lifetime, so the
+  // store's callbacks can be passed to React directly.
+  const acceptedInterval = useSyncExternalStore(pollWatch.subscribe, pollWatch.getSnapshot)
 
   const load = useCallback(async () => {
     if (cwd === undefined) return
@@ -92,7 +83,7 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, po
     }
   }, [cwd, status])
 
-  // Initial value from the Host, used until the settings scope is ready.
+  // Initial value from the Host, used until a settings save publishes one.
   const refreshConfig = useCallback(async () => {
     const result = await getPollConfig()
     if (result.ok) setRemoteInterval(result.value.refreshIntervalMs)
@@ -106,12 +97,9 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, po
     void refreshConfig()
   }, [cwd, refreshConfig])
 
-  // The settings scope is the live source: after a card save the mirror folds
-  // the new value here and the timer restarts with it immediately.
-  const settingsInterval = settingsSnapshot.status === 'ready' && settingsSnapshot.value !== undefined
-    ? settingsSnapshot.value.refreshIntervalMs
-    : undefined
-  const pollIntervalMs = settingsInterval ?? remoteInterval
+  // A settings save folds the new value into `pollWatch`, which restarts the
+  // timer immediately; the Remote value stands in everywhere else.
+  const pollIntervalMs = acceptedInterval ?? remoteInterval
 
   // Initial load whenever the workspace changes.
   useEffect(() => {
@@ -124,7 +112,20 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, po
   }, [cwd, load])
 
   // Auto-refresh timer; paused while the tab is hidden, resumed (with an
-  // immediate refresh) when it becomes visible again.
+  // immediate refresh) when it becomes visible again. A visible tab also
+  // re-reads the Host value, so a change made from another browser or from the
+  // profile patch lands without a reload.
+  useEffect(() => {
+    if (cwd === undefined) return
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      void refreshConfig()
+      void load()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => { document.removeEventListener('visibilitychange', onVisibility) }
+  }, [cwd, load, refreshConfig])
+
   useEffect(() => {
     if (cwd === undefined || pollIntervalMs === null || pollIntervalMs <= 0) return
     let timer: ReturnType<typeof setInterval> | undefined
@@ -140,12 +141,8 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, po
     }
     start()
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        start()
-        void load()
-      } else {
-        stop()
-      }
+      if (document.visibilityState === 'visible') start()
+      else stop()
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
@@ -159,7 +156,7 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, po
   return (
     <div ref={rootRef} className={css.root}>
       <span className={css.branch}>
-        <IconBranchOutline16 size={14} />
+        <IconBranchOutlineRegular size={14} />
         <span className={css.branchName}>{snapshot.branch}</span>
       </span>
       {snapshot.clean
@@ -182,7 +179,7 @@ export function GitStatusBar({ sessionId, useSessions, status, getPollConfig, po
           disabled={refreshing}
           onClick={() => { void load() }}
         >
-          <IconRefreshOutline16 size={14} />
+          <IconRefreshOutlineRegular size={14} />
         </button>
       </Tooltip>
       {expanded && (

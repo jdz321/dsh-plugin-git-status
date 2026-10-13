@@ -1,185 +1,98 @@
 /**
- * The plugin's card inside the Plugins settings section
- * (`settings.plugin.item`, keyed by the `dsh-plugin-git-status` namespace).
- * Edits the panel auto-refresh interval through the bound settings scope; the
- * Host service reads the same document, so a save takes effect live.
+ * The plugin's own settings page inside the Plugins panel, registered into the
+ * `plugins.bundle.config` keyed slot (the seat the Plugins page documents for a
+ * bundle's configuration). It edits the panel auto-refresh interval through the
+ * shared `configForms` service, which the Host settings page also uses; a save
+ * is one revision-fenced write, and the Host commits it into the running
+ * `Volatile` reference so the panel picks it up without a reload.
  *
- * The official plugin cards (`PluginCard`/`ValueField`) live inside
- * `@deepseek-ai/dsh-client-ui-settings-plugins`, which is not a shared browser
- * module an external plugin may import, so this card mirrors their layout and
- * surface tokens locally.
+ * The page chrome, the staged form model, and the controls all come from
+ * `@deepseek-ai/dsh-client-ui-primitives`, the same public surface the shipped
+ * companion settings pages build on.
  */
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
-import css from './plugin-card.module.css'
+import { SettingsForm, SettingsFormModel, SettingsValueField, settingsNumberField } from '@deepseek-ai/dsh-client-ui-primitives'
+import type {
+  SettingsFieldState, SettingsFormActions, SettingsFormScope, SettingsFormShell,
+} from '@deepseek-ai/dsh-client-ui-primitives'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: the Plugins page's SlotMap merge (the 'plugins.bundle.config' entry).
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
+import { formLabels } from './locales'
+import { SETTINGS_ENTRY_ID, type GitPluginSettings } from './settings-entry'
 
-/** The settings section this card edits — a subset of the Host Config. */
-export interface GitPluginSettings {
-  /** Milliseconds between automatic refreshes; 0 disables auto-refresh. */
-  refreshIntervalMs?: number
+/** What the page renders. */
+export interface GitStatusCardState extends SettingsFormShell {
+  /** Panel auto-refresh interval. */
+  refreshIntervalMs: SettingsFieldState
 }
 
-/** Placeholder when no value has ever been accepted. */
-const MAX_MS = 3_600_000
+/** The registration-side face the page's slot entry injects. */
+export interface GitStatusCardFace extends SettingsFormActions {
+  hooks: {
+    /** Page snapshot bound by the renderer as `useGitStatusCard`. */
+    gitStatusCard: SnapshotStore<GitStatusCardState>
+  }
+}
 
-export type GitStatusPluginCardProps =
-  PropsRuntime<'settings.plugin.item'>
-  & { scope: SettingsScope<GitPluginSettings> }
+/** Bridges the settings entry onto the page's staged form. */
+export class GitStatusSettingsCardController {
+  private readonly form: SettingsFormModel<GitPluginSettings>
+  private readonly store: SnapshotStore<GitStatusCardState>
+
+  /** @param scope - the shared configuration form for this plugin's Host entry. */
+  constructor(scope: SettingsFormScope<GitPluginSettings>) {
+    this.form = new SettingsFormModel(scope, [settingsNumberField('refreshIntervalMs')])
+    this.store = this.form.bind(() => this.projection())
+  }
+
+  private projection(): GitStatusCardState {
+    return { ...this.form.shell(), refreshIntervalMs: this.form.field('refreshIntervalMs') }
+  }
+
+  /**
+   * Build the face the page's slot entry injects.
+   * @returns the page's snapshot and its form actions.
+   */
+  inject(): GitStatusCardFace {
+    return { hooks: { gitStatusCard: this.store }, ...this.form.actions() }
+  }
+
+  /** Release accepted-value subscriptions. */
+  dispose(): void { this.form.dispose() }
+}
+
+/** Props the renderer binds for this plugin's settings page. */
+export type GitStatusSettingsCardProps =
+  PropsRuntime<'plugins.bundle.config'>
   & PropsLocale<'git-status'>
+  & InjectFace<GitStatusCardFace>
 
-export function GitStatusPluginCard({ scope, t }: GitStatusPluginCardProps) {
-  // React calls the store callbacks without `this`, so bind the scope's
-  // methods through stable wrappers (the scope itself is stable).
-  const subscribe = useMemo(
-    () => (listener: () => void) => scope.subscribe(listener),
-    [scope],
-  )
-  const getSnapshot = useMemo(
-    () => () => scope.getSnapshot(),
-    [scope],
-  )
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot)
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  if (snapshot.status !== 'ready') return null
-
-  const value = snapshot.value?.refreshIntervalMs
-  const writable = snapshot.writable
-  const existingOverride = snapshot.user !== undefined
-    && typeof snapshot.user === 'object'
-    && 'refreshIntervalMs' in (snapshot.user as object)
-
-  // Follow the accepted value (initial load and after every committed write).
-  useEffect(() => {
-    setDraft(value === undefined ? '' : String(value))
-  }, [value])
-
-  const parsed = Number(draft)
-  /** Empty draft means "use the default" (a clear); a non-numeric draft is invalid. */
-  const invalid = draft !== '' && !Number.isFinite(parsed)
-  /** A staged edit exists when the draft differs from the accepted value. */
-  const dirty = String(value ?? '') !== draft
-  /** Saving would leave a user-layer entry for this field. */
-  const overridden = existingOverride || (draft !== '' && !invalid)
-
-  const save = async (): Promise<void> => {
-    if (invalid) {
-      setError(t('settings.invalid'))
-      return
-    }
-    setSaving(true)
-    setError(null)
-    try {
-      if (draft === '') {
-        // Leaving the field blank restores the composition default.
-        await scope.unset('refreshIntervalMs')
-      } else {
-        await scope.set('refreshIntervalMs', parsed)
-      }
-    } catch (cause) {
-      setError(t('settings.saveFailed'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const discard = (): void => {
-    setDraft(value === undefined ? '' : String(value))
-    setError(null)
-  }
-
-  const reset = async (): Promise<void> => {
-    setSaving(true)
-    setError(null)
-    try {
-      await scope.unset('refreshIntervalMs')
-    } finally {
-      setSaving(false)
-    }
-  }
-
+/**
+ * Render the plugin's one-liner or its settings form, as the Plugins page asks.
+ * @param props - the view asked for, locale copy, the form snapshot, and its actions.
+ * @returns the one-liner, or the staged form.
+ */
+export function GitStatusSettingsCard(props: GitStatusSettingsCardProps) {
+  const { t } = props
+  const state = props.useGitStatusCard(snapshot => snapshot)
+  if (props.view === 'summary') return t('settings.description')
   return (
-    <li className={open ? `${css.card} ${css.cardOpen}` : css.card}>
-      <button
-        type="button"
-        className={css.header}
-        aria-expanded={open}
-        aria-label={`${t(open ? 'settings.collapse' : 'settings.expand')}: ${t('settings.title')}`}
-        onClick={() => { setOpen(!open) }}
-      >
-        <span className={css.headText}>
-          <span className={css.name}>{t('settings.title')}</span>
-          <span className={css.description}>{t('settings.description')}</span>
-        </span>
-        {dirty && <span className={css.pending}>{t('settings.unsaved')}</span>}
-        <IconChevronDownOutline14 className={open ? `${css.chevron} ${css.chevronOpen}` : css.chevron} />
-      </button>
-      {open && (
-        <div className={css.body}>
-          {!writable && <p className={css.readOnly} role="status">{t('settings.readOnly')}</p>}
-          <div className={css.field}>
-            <div className={css.head}>
-              <label className={css.label} htmlFor="plugin-config-git-refresh">{t('settings.refreshIntervalMs')}</label>
-              {overridden && (
-                <span className={css.badges}>
-                  <span className={css.badge}>{t('settings.overridden')}</span>
-                  <button
-                    type="button"
-                    className={css.reset}
-                    disabled={!writable || saving}
-                    onClick={() => { void reset() }}
-                  >
-                    {t('settings.reset')}
-                  </button>
-                </span>
-              )}
-            </div>
-            <input
-              id="plugin-config-git-refresh"
-              className={invalid ? css.inputInvalid : css.input}
-              type="text"
-              inputMode="numeric"
-              aria-invalid={invalid}
-              value={draft}
-              disabled={!writable || saving}
-              placeholder={value === undefined ? String(MAX_MS) : String(value)}
-              onChange={(e) => { setDraft(e.target.value); setError(null) }}
-              onKeyDown={(e) => { if (e.key === 'Enter') void save() }}
-            />
-            <p className={invalid ? css.invalid : css.hint}>
-              {invalid ? t('settings.invalid') : t('settings.refreshIntervalMsHint')}
-            </p>
-          </div>
-          <div className={css.footer}>
-            {error !== null && <p className={css.failed} role="status">{error}</p>}
-            <button
-              type="button"
-              className={css.discard}
-              disabled={!dirty || saving}
-              onClick={discard}
-            >
-              {t('settings.discard')}
-            </button>
-            <button
-              type="button"
-              className={css.save}
-              disabled={!dirty || invalid || saving}
-              onClick={() => { void save() }}
-            >
-              {t(saving ? 'settings.saving' : 'settings.save')}
-            </button>
-          </div>
-        </div>
-      )}
-    </li>
+    <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
+      <SettingsValueField
+        id="plugin-config-git-refresh"
+        label={t('settings.refreshIntervalMs')}
+        hint={t('settings.refreshIntervalMsHint')}
+        overriddenLabel={t('settings.overridden')}
+        resetLabel={t('settings.reset')}
+        invalidLabel={t('settings.invalid')}
+        numeric
+        disabled={!state.writable}
+        {...state.refreshIntervalMs}
+        onEdit={(text) => { props.edit('refreshIntervalMs', text) }}
+        onReset={() => { props.resetField('refreshIntervalMs') }}
+      />
+    </SettingsForm>
   )
 }

@@ -4,11 +4,14 @@
  * Registers two capabilities that share one read-only git inspector:
  *  - the `gitStatus` Remote service, exposed to the browser panel, and
  *  - the model-facing `git_status` tool.
+ *
+ * `refreshIntervalMs` is a volatile configuration field: the Loader keeps the
+ * `Volatile` reference handed to `apply` and commits a Settings write into it
+ * in place, so the Remote reads the live value without a remount.
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-settings'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { runGitStatus } from './git'
@@ -17,8 +20,12 @@ import type { GitStatusSnapshot, PollConfig } from './types'
 export const name = 'dsh-plugin-git-status'
 export const inject = ['tools']
 
-/** Settings namespace owned by this plugin; the plugin-config card edits it. */
-export const SETTINGS_NS = 'dsh-plugin-git-status'
+/**
+ * Cordis entry id this plugin's settings form is addressed by. The Host
+ * settings service keys every form by its Loader entry id, so this value must
+ * stay equal to the `id` of the inserted row in `cordis.patch.yml`.
+ */
+export const SETTINGS_ENTRY_ID = 'dsh-plugin-git-status'
 
 /** Plugin configuration. */
 export interface Config {
@@ -27,12 +34,16 @@ export interface Config {
    * the panel then only updates on the manual refresh button or a session
    * change.
    */
-  refreshIntervalMs: number
+  refreshIntervalMs: Volatile<number>
 }
 
-/** Schemastery config: invalid values fail loud at load time. */
-export const Config: Schema<Config> = Schema.object({
-  refreshIntervalMs: Schema.natural().max(3_600_000).default(30_000),
+/**
+ * Schemastery config: invalid values fail loud at load time. The volatile
+ * marker makes the field editable from the Plugins page and live in the
+ * running fiber.
+ */
+export const Config = Schema.object({
+  refreshIntervalMs: Schema.natural().max(3_600_000).default(30_000).volatile(),
 })
 
 const FILE_ENTRY_SCHEMA = {
@@ -103,17 +114,8 @@ const TOOL_DESCRIPTION =
 
 /** Remote service consumed by the browser panel. */
 export class GitStatusService extends TypertRemoteService {
-  /** Live configuration source; defaults to the composition entry until the settings section attaches. */
-  private source: () => Config
-
-  constructor(ctx: Context, entry: Config) {
+  constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'gitStatus')
-    this.source = () => entry
-  }
-
-  /** The settings section hands the live (document-resolved) config source here. */
-  setSource(source: () => Config): void {
-    this.source = source
   }
 
   /** Inspect the git status of one directory (defaults to the host cwd). */
@@ -121,28 +123,19 @@ export class GitStatusService extends TypertRemoteService {
     return runGitStatus(cwd)
   }
 
-  /** Panel auto-refresh configuration, read live from the settings document. */
+  /**
+   * Panel auto-refresh configuration, read live from the committed volatile
+   * reference so a Settings write takes effect without a remount.
+   */
   async getPollConfig(): Promise<PollConfig> {
-    return { refreshIntervalMs: this.source().refreshIntervalMs }
+    return { refreshIntervalMs: this.config.refreshIntervalMs.get() }
   }
 }
 
 export function apply(ctx: Context, config: Config): void {
   // Direct construction (not ctx.plugin) so the service receives the entry;
   // the Service base registers itself and is unregistered with this fiber.
-  const service = new GitStatusService(ctx, config)
-
-  // Register the editable settings namespace: the composition entry is the
-  // base layer, and the document (edited from the Plugins settings card) is
-  // the user layer. setSource keeps the Remote reading the live value. The
-  // settings provider may be absent (no settings document); the plugin then
-  // keeps running on its composition entry.
-  ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.installSection(ctx, SETTINGS_NS, Config, config, {
-      setSource: (current) => { service.setSource(current as () => Config) },
-      onChange: () => {},
-    })
-  })
+  new GitStatusService(ctx, config)
 
   ctx.tools.register(defineTool({
     name: 'git_status',

@@ -35,9 +35,10 @@ the original path for renames:
 
 ## Supported Harness version
 
-`0.1.2-alpha.4` (the plugin peer-depends on the same `@deepseek-ai/*` package
-versions). For older Harness releases use plugin `0.3.0` (`0.1.0-rc.7`) or
-`0.4.0` (`0.1.1-rc.1`).
+`0.2.0-rc.2` (the plugin peer-depends on the same `@deepseek-ai/*` package
+versions, `cordis` `^4.0.4` and `schemastery` `^3.18.4`). For older Harness
+releases use plugin `0.5.0` (`0.1.2-alpha.4`), `0.4.0` (`0.1.1-rc.1`) or `0.3.0`
+(`0.1.0-rc.7`).
 
 ## Install
 
@@ -64,10 +65,12 @@ dsh plugin --profile <name> add github:<owner>/dsh-plugin-git-status#0123456789a
 ## Configuration
 
 The panel auto-refresh cadence is configurable at runtime from the browser:
-open **Settings → Plugins** and edit the **Git status** card
-(`refreshIntervalMs`), like the terminal plugin's command-timeout card. The
-change is written to the Host settings document and takes effect live (the
-panel re-reads it when the tab becomes visible again).
+open the **Plugins** panel, select the **dsh-plugin-git-status** bundle, and use
+the **Git status** form on its page (`refreshIntervalMs`). The field is a
+volatile Host configuration value: a save is written to the profile's
+configuration document and committed into the running plugin, so the panel
+picks the new cadence up without a page reload. On a deployment whose profile
+does not expose plugin configuration, the form is not rendered at all.
 
 It can also be set through the plugin's Cordis row. Add a `config` block for
 the `dsh-plugin-git-status` row in your profile's `cordis.patch.yml`:
@@ -80,9 +83,9 @@ the `dsh-plugin-git-status` row in your profile's `cordis.patch.yml`:
 ```
 
 - `refreshIntervalMs` — milliseconds between automatic refreshes
-  (default `30000`). Set it to `0` to disable auto-refresh entirely; the panel
-  then only updates on the manual refresh button or when the workspace
-  changes.
+  (default `30000`, upper bound `3600000`). Set it to `0` to disable
+  auto-refresh entirely; the panel then only updates on the manual refresh
+  button or when the workspace changes.
 - Auto-refresh is also paused while the browser tab is hidden, and resumes
   (with an immediate refresh) when the tab becomes visible again.
 
@@ -116,11 +119,15 @@ Notable changes per release are documented in
 ## Development
 
 ```bash
-pnpm install
-pnpm typecheck
-pnpm test
-pnpm build
+npm install
+npm run typecheck
+npm test
+npm run build
 ```
 
-`pnpm build` emits `lib/index.js` (Host), `lib/typert.js` (Remote descriptor),
-and `lib/client.js` (browser bundle).
+`npm run build` emits `lib/index.js` (Host), `lib/typert.js` (Remote
+descriptor) and `lib/client.js` (browser bundle). `npm test` covers the
+pure git parser, the Host half on a real Cordis context, the browser half's slot
+and Remote wiring, and the Typert wire contract — the last one runs the real
+`typert-loader` validator and Typert registry, so a codec that loses its
+`create()` factory fails here instead of at plugin mount.
